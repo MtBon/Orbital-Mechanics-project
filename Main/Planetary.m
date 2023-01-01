@@ -4,6 +4,7 @@ clearvars; close all; clc;
 %Called functions:
 
 %  -kp2rv ;
+%  -rv2kp ;
 %  -ephMoon ;
 %  -GroundTrack ;
 %  -astroConstants ;
@@ -18,6 +19,7 @@ clearvars; close all; clc;
 %Add path fot functions
 addpath('..\Functions\');
 
+%Function for Plots
 matlab_graphics;
 
 %Datas
@@ -33,6 +35,8 @@ Parameters.thetaG0 = deg2rad(0);   %Anomaly of Greenwich        [Rad]
 Parameters.mu = astroConstants(13);
 Parameters.Re = astroConstants(23);
 Parameters.we = deg2rad(15.04 / 3600);  %Earth angular velocity [Rad/s]
+mu_moon = astroConstants(20);
+J2 = astroConstants(9);
 
 
 %Times for different analysis
@@ -46,12 +50,16 @@ T_span = linspace(0, times.T, 9000);
 day_span = linspace(0, times.day, 9000);
 days10_span = linspace(0, times.days_10, 9000);
 
+%Date of Departure
+initial = [2023 1 7 10 0 0];
+
+
 %Cartesian 
 [r0, v0] = kp2rv(Parameters.a, Parameters.e, Parameters.incl, Parameters.Omega, ...
                                         Parameters.omega, Parameters.theta, Parameters.mu);
 
 
-[r_moon, v_moon] = ephMoon(1000);
+[r_moon, v_moon] = ephMoon(date2mjd2000(initial));
 y0_moon = [r_moon , v_moon];
 
 y0 = [r0 v0];  %Initial State
@@ -137,10 +145,6 @@ v_rep_days10 = Y_rep_days10(:,4:6);
                                              days10_span,Parameters.we,times.t0);
 
 
-%Date of Departure
-initial = [2023 1 7 10 0 0];
-mu_moon = astroConstants(20);
-J2 = astroConstants(9);
 
 [~ , Y_pert_orbit ] = ode113( @(t,y) ode_2bpJ(t,y,Parameters.mu,J2,Parameters.Re ,initial,mu_moon), T_span, y0, options );
 [~ , Y_pert_day ] = ode113( @(t,y) ode_2bpJ(t,y,Parameters.mu,J2, Parameters.Re ,initial,mu_moon), day_span, y0, options );
@@ -199,12 +203,18 @@ v_pert_days10 = Y_pert_days10(:,4:6);
 
 
 %Propagation with Perturbations
-times.T_prop = linspace(0, 50 * times.days_10,10000 ); %500 days propagation
+times.T_prop = linspace(0, 60 * times.days_10,10000 ); %600 days propagation
 
+%Initial States
+
+%For Cartesian
 s0 = [Parameters.a Parameters.e Parameters.incl Parameters.Omega Parameters.omega Parameters.theta];
 
+%For Gauss Equations
+kep0 = [Parameters.a, Parameters.e,Parameters.incl,Parameters.Omega,Parameters.omega,Parameters.theta];
+
 %Gauss equations
-[ ~ , S_gauss] = ode113( @(t, s) eq_motion(t, s,J2,Parameters.Re,Parameters.mu,mu_moon,initial),times.T_prop,s0,options);
+[ ~ , S_gauss] = ode113( @(t, s) eq_motion(t, s,J2,Parameters.Re,Parameters.mu,mu_moon,initial),times.T_prop,kep0,options);
 
 %Propagation of orbit in Cartesian
 [~ , S_per ] = ode113( @(t,y) ode_2bpJ(t,y,Parameters.mu,J2,Parameters.Re , initial,mu_moon), times.T_prop, y0, options );
@@ -219,7 +229,39 @@ for i = 1:length(times.T_prop)
 initial(3) = initial(3) - s2days(times.T_prop(i));
 end
 
-%Variations of Keplerian Parameters
+
+%Variation of Kep elements in Cartesian
+r_per = S_per(:,1:3);
+v_per = S_per(:,4:6);
+a_car = zeros(length(times.T_prop),1);
+e_car = a_car;
+i_car = a_car;
+Om_car = a_car;
+om_car = a_car;
+theta_car = a_car;
+r_car = zeros(length(times.T_prop),3);
+v_car = r_car;
+err_x = zeros(length(times.T_prop),1);
+err_y = err_x;
+err_z = err_x;
+
+for i = 1:length(times.T_prop)
+
+    [a_car(i),e_car(i),i_car(i),Om_car(i),om_car(i),theta_car(i)] = rv2kp(r_per(i,:),v_per(i,:),Parameters.mu);
+    [r_car(i,:) , v_car(i,:)] = kp2rv(S_gauss(i,1),S_gauss(i,2),S_gauss(i,3),S_gauss(i,4),S_gauss(i,5),S_gauss(i,6),Parameters.mu);
+    err_x(i) = r_per(i,1) - r_car(i,1);
+    err_y(i) = r_per(i,2) - r_car(i,2);
+    err_z(i) = r_per(i,3) - r_car(i,3);
+    
+end
+
+%Unwrapping
+Om_car = unwrap(Om_car);
+om_car = unwrap(om_car);
+theta_car = unwrap(theta_car);
+
+
+%Variations of Keplerian Parameters with Gauss equations
 a_prop = S_gauss(:,1);
 e_prop = S_gauss(:,2);
 incl_prop = S_gauss(:,3);
@@ -341,6 +383,7 @@ grid on;
 legend('Earth','Nominal Orbit','Repeated Orbit','Moon');
 
 
+%Orbit representation
 figure(5)
 plot3(S_per(:,1), S_per(:,2), S_per(:,3));
 hold on;
@@ -348,35 +391,105 @@ plot3(s_moon(1,:),s_moon(2,:),s_moon(3,:));
 hold on;
 earth_sphere;
 
+
+%Variation of Semi major axis
 figure(6)
-plot(times.T_prop/times.day, a_prop);
 title('Variations of Semi major axis');
+
+subplot(2,1,1)
+plot(times.T_prop/times.day, a_prop);
+hold on;
+plot(times.T_prop/times.day, movmean(a_prop,300));
+legend('Gauss','Secular');
 xlabel('Time [Days]');
-ylabel('a [Km]')
+ylabel('a [Km]');
+
+subplot(2,1,2)
+plot(times.T_prop/times.day, a_car);
+legend('Cartesian');
+xlabel('Time [Days]');
+ylabel('a [Km]');
 
 
+%Variation of eccentricity
 figure(7)
-plot(times.T_prop/times.day, e_prop);
 title('Variations of eccentricity');
+
+subplot(2,1,1)
+plot(times.T_prop/times.day, e_prop);
+hold on;
+plot(times.T_prop/times.day, movmean(e_prop,950));
+legend('Gauss','Secular');
 xlabel('Time [Days]');
 ylabel('e [-]');
 
+subplot(2,1,2)
+plot(times.T_prop/times.day, e_car);
+legend('Cartesian');
+xlabel('Time [Days]');
+ylabel('e [-]');
+
+
+%Variation of Inclination
 figure(8)
-plot(times.T_prop/times.day, rad2deg(incl_prop));
 title('Variations of Inclination');
+
+subplot(2,1,1)
+plot(times.T_prop/times.day, rad2deg(incl_prop));
+hold on;
+plot(times.T_prop/times.day, movmean(rad2deg(incl_prop),100));
+plot(times.T_prop/times.day, movmean(rad2deg(incl_prop),900));
+legend('Gauss','Long Period','Secular');
 xlabel('Time [Days]');
 ylabel('i [Deg]');
 
+subplot(2,1,2)
+plot(times.T_prop/times.day, rad2deg(i_car));
+legend('Cartesian');
+xlabel('Time [Days]');
+ylabel('i [Deg]');
+
+
+%Variation of RAAN
 figure(9)
-plot(times.T_prop/times.day, rad2deg(Omega_prop));
 title('Variations of RAAN');
+
+subplot(2,1,1)
+plot(times.T_prop/times.day, rad2deg(Omega_prop));
+hold on;
+plot(times.T_prop/times.day, movmean(rad2deg(Omega_prop),100));
+plot(times.T_prop/times.day, movmean(rad2deg(Omega_prop),500));
+legend('Gauss','Long Term','Secular');
 xlabel('Time [Days]');
 ylabel('\Omega [Deg]');
 
+subplot(2,1,2)
+plot(times.T_prop/times.day, rad2deg(Om_car));
+legend('Cartesian');
+xlabel('Time [Days]');
+ylabel('\Omega [Deg]');
+
+%Variations of anomaly of periapsis
 figure(10)
-plot(times.T_prop/times.day, rad2deg(omega_prop));
 title('Variations of anomaly of periapsis');
+
+subplot(2,1,1)
+plot(times.T_prop/times.day, rad2deg(omega_prop));
+hold on;
+plot(times.T_prop/times.day, movmean(rad2deg(omega_prop),100));
+plot(times.T_prop/times.day, movmean(rad2deg(omega_prop),900));
+legend('Gauss','Long Term','Secular');
 xlabel('Time [Days]');
 ylabel('\omega [Deg]');
+
+subplot(2,1,2)
+plot(times.T_prop/times.day, rad2deg(om_car));
+legend('Cartesian');
+xlabel('Time [Days]');
+ylabel('\omega [Deg]');
+
+
+%mov_orbit(S_gauss,times.T_prop);
+
 
 
