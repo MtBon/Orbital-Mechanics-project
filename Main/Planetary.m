@@ -199,7 +199,7 @@ v_pert_days10 = Y_pert_days10(:,4:6);
 
 
 %Propagation with Perturbations
-times.T_prop = linspace(0, 100 * times.days_10,10000 ); %1000 days propagation
+times.T_prop = linspace(0, 50 * times.days_10,10000 ); %500 days propagation
 
 s0 = [Parameters.a Parameters.e Parameters.incl Parameters.Omega Parameters.omega Parameters.theta];
 
@@ -351,7 +351,6 @@ earth_sphere;
 figure(6)
 plot(times.T_prop/times.day, a_prop);
 title('Variations of Semi major axis');
-legend('Semi major axis');
 xlabel('Time [Days]');
 ylabel('a [Km]')
 
@@ -359,28 +358,24 @@ ylabel('a [Km]')
 figure(7)
 plot(times.T_prop/times.day, e_prop);
 title('Variations of eccentricity');
-legend('Eccentricity');
 xlabel('Time [Days]');
 ylabel('e [-]');
 
 figure(8)
 plot(times.T_prop/times.day, rad2deg(incl_prop));
 title('Variations of Inclination');
-legend('Inclination');
 xlabel('Time [Days]');
 ylabel('i [Deg]');
 
 figure(9)
 plot(times.T_prop/times.day, rad2deg(Omega_prop));
 title('Variations of RAAN');
-legend('RAAN');
 xlabel('Time [Days]');
 ylabel('\Omega [Deg]');
 
 figure(10)
 plot(times.T_prop/times.day, rad2deg(omega_prop));
 title('Variations of anomaly of periapsis');
-legend('Anomaly of Periapsis');
 xlabel('Time [Days]');
 ylabel('\omega [Deg]');
 
