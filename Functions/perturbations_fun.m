@@ -1,9 +1,8 @@
 function a_pert = perturbations_fun(t,r,J2,Re,initial,mu, mu_moon)
 
 %Compute the perturbations given the state
-initial(3) = initial(3) + s2days(t);
-[x_moon, ~ ] = ephMoon(date2mjd2000(initial));
-initial(3) = initial(3) - s2days(t);
+days = date2mjd2000(initial) + s2days(t);
+[x_moon, ~ ] = ephMoon(days);
 
 rnorm = norm(r);
 

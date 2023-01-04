@@ -16,19 +16,17 @@ theta = s(6);
  [r,v] = kp2rv(a,e,i,Omega,omega,theta,mu);
  a_pert = perturbations_fun(t,r,J2,Re,initial,mu, mu_moon);
  
-%Change coordinate in RSW
+%RSW reference frame
+A = [ -sin(Omega) * cos(i) * sin(theta + omega) + cos(Omega) * cos(theta + omega) , cos(Omega) * cos(i) * sin(omega + theta) + sin(Omega) * cos(theta + omega) , sin(i) * sin(theta + omega)
+      -sin(Omega) * cos(i) * cos(theta + omega) - cos(Omega) * sin(theta + omega) , cos(Omega) * cos(i) * cos(omega + theta) - sin(Omega) * sin(theta + omega) , sin(i) * cos(theta + omega)
+      sin(Omega) * sin(i) , -cos(Omega) * sin(i) , cos(i)] ;
 
-R = (r/norm(r))';
-W = (cross(r,v)/norm(cross(r,v)))';
-S = (cross(W,R));
 
-a_rsw = [ R, S, W ]' * a_pert;
+a_rsw = A * a_pert;
 
 a_r = a_rsw(1);
 a_s = a_rsw(2);
 a_w = a_rsw(3);
-
-
 
  p = a * (1 - e^2);
  h = sqrt(p * mu);

@@ -53,6 +53,9 @@ function out = astroConstants(in)
 %           28  N       (from Horizon)
 %           29  P       (from Horizon)
 %           30  Moon    (from Horizon)
+%       Mass of planets [Kg]:
+%           33 Earth
+%           34 Moon
 %
 %   Notes for upgrading this function:
 %       It is possible to add new constants.
@@ -153,6 +156,7 @@ function out = astroConstants(in)
 %       References added.
 %   20/03/2013, REVISION, Francesca Letizia.
 %   22/03/2013, Francesca Letizia: all GM from DE405.
+%   2/01/2023 , Matteo Bono: Earth and Moon mass.
 %
 % -------------------------------------------------------------------------
 
@@ -267,6 +271,12 @@ for i=1:length(in)
         % Add an identifier and constant here. Prototype:
         % case $identifier$
         %     out(i)=$constant_value$;
+        case 33
+            out(i) = 5.9724e24; %Earth Mass [Kg]
+
+        case 34
+            out(i) = 0.07346e24; %Moon Mass [Kg]
+
         otherwise
             warning('Constant identifier %d is not defined!',in(i));
             out(i)=0;
